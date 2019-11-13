@@ -9,72 +9,80 @@ END simonClassic;
 
 
 ARCHITECTURE behavior OF simonClassic IS
-signal randCount : STD_LOGIC_VECTOR(2 downto 0);
-signal halfSecCount : STD_LOGIC_VECTOR(24 downto 0);
-signal CLK_1HZ : STD_LOGIC;
-signal randNum : STD_LOGIC_VECTOR(2 downto 0);
-signal startclock : STD_LOGIC;
-signal numOfMoves : INTEGER range 0 to 100;
-signal simonVector : STD_LOGIC_VECTOR (0 to 1);
-signal numOfInputs : INTEGER;
+signal counter : STD_LOGIC_VECTOR(2 downto 0);
 
-signal userFinishedInput : STD_LOGIC;
+signal randNum : STD_LOGIC_VECTOR(2 downto 0);
+signal simonVector : STD_LOGIC_VECTOR (0 to 1);
 signal patternDisplayed : STD_LOGIC;
+signal userFinishedInput : STD_LOGIC;
+
+
+signal numOfMoves : INTEGER range 0 to 100;
+signal numOfInputs : INTEGER;
+signal currentNum : STD_LOGIC_VECTOR(1 downto 0);
+
+signal ledPermissions : STD_LOGIC_VECTOR(3 downto 0) := "0000";
+
+COMPONENT onOff
+   port(CLK_50MHz, permission: IN STD_LOGIC; led : OUT STD_LOGIC);
+END COMPONENT;
 
 BEGIN --behavior
+
 
 randCounter : process (clock)
 BEGIN -- randCounter: this will be the counter that will generate a random number
 if clock'event and clock = '1' then  -- rising clock edge
-if randCount < "100" then   -- Binary value is 4
-randCount <= randCount + 1;
+if counter < "100" then   -- Binary value is 4
+counter <= counter + 1;
 else
-randCount <= (others => '0');
+counter <= (others => '0');
 end if;
 end if;
 END process randCounter;
 
-halfSecondClock : process
-BEGIN
- wait until startclock = '1';
-if clock'event and clock = '1' then  -- rising clock edge
-if halfSecCount < "1011111010111100001000000" then   -- Binary value is 4
-halfSecCount <= halfSecCount + 1;
-else
-halfSecCount <= (others => '0');
-startclock <= '0';
-end if;
-end if;
-END process halfSecondClock;
 
-createAndDisplay : process -- will be adding one value (two bits) to the simonVector after a signal is changed
+createAndDisplay : process (clock) -- will be adding one value (two bits) to the simonVector after a signal is changed
 variable index : integer range 0 to 100;
 variable numOfMovesIndex : INTEGER range 0 to 100:= numOfMoves;
 SUBTYPE my_loop_range IS natural range 0 to numOfMovesIndex;
 BEGIN
-wait until userFinishedInput = '0';
- randNum <= randCount;
- index := numOfMoves + numOfMoves;
- simonVector(index) <= randNum(0);
- simonVector(index +1) <= randNum(1);
- numOfMoves <= numOfMoves + 1;
- userFinishedInput <= '1';
+if userFinishedInput = '0' then
+ patternDisplayed <= '0';
+ randNum <= counter;
+  simonVector(0) <= randNum(0);
+ simonVector(1) <= randNum(1);
+ 
+-- index := numOfMoves + numOfMoves;
+-- simonVector(index) <= randNum(0);
+-- simonVector(index +1) <= randNum(1);
+-- numOfMoves <= numOfMoves + 1;
+    ledPermissions <= "0000";
+if simonVector = "00" then
+   ledPermissions(0) <= '1';
+elsif simonVector = "01" then
+   ledPermissions(1) <= '1';
+elsif simonVector = "10" then
+   ledPermissions(2) <= '1';
+elsif simonVector = "11" then
+   ledPermissions(3) <= '1';
+end if;
 
-  startclock <= '1';
-  for ii in my_loop_range loop
-wait until startclock = '0';
-l0 <= '0'; l1 <= '0'; l2 <= '0'; l3 <= '0';
-    if simonVector((2*ii) to (2*ii) + 1) = "00" then
-l0 <= '1';
- elsif simonVector((2*ii) to (2*ii) + 1) = "01" then
-     l1 <= '1';
- elsif simonVector((2*ii) to (2*ii) + 1) = "10" then
-     l2 <= '1';
- elsif simonVector((2*ii) to (2*ii) + 1) = "11" then
-     l3 <= '1';
- end if;
-END loop;
+--  for ii in my_loop_range loop
+-- ledPermissions <= (others => '0');
+--    currentNum <= simonVector((2*ii) to (2*ii) + 1);
+-- if currentNum = "00" then
+--    ledPermissions(0) <= '1';
+-- elsif currentNum = "01" then
+--    ledPermissions(1) <= '1';
+-- elsif currentNum = "10" then
+--    ledPermissions(2) <= '1';
+-- elsif currentNum = "11" then
+--    ledPermissions(3) <= '1';
+-- end if;
+-- END loop;
 patternDisplayed <= '1';
+END if;
 END PROCESS createAndDisplay;
 
 
@@ -84,6 +92,13 @@ if patternDisplayed = '1' then
 if b0 = '0' then
 userFinishedInput <= '0';
 END if;
+else
+   userFinishedInput <= '1';
 END if;
 END PROCESS userInput;
+
+l0Proc: onOff Port map(clock, ledPermissions(0), l0);
+l1Proc: onOff Port map(clock, ledPermissions(1), l1);
+l2Proc: onOff Port map(clock, ledPermissions(2), l2);
+l3Proc: onOff Port map(clock, ledPermissions(3), l3);
 END behavior;
